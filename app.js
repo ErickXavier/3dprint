@@ -13,9 +13,9 @@ const DOCK_Z = -11.0; // Docking insertion Z (the slot center)
 const APPROACH_Z = -9.0; // Docking approach Z (in front of slot)
 
 // Slots relative X coordinates on carriage
-const SLOT_LOCAL_XS = [-3.0, -1.0, 1.0, 3.0];
-const COLOR_HEXS = [0xff2a2a, 0x4af626, 0x00e5ff, 0xffb300]; // Red, Green, Cyan/Blue, Amber/Yellow
-const COLOR_NAMES = ["T0_RED", "T1_GREEN", "T2_CYAN", "T3_AMBER"];
+const SLOT_LOCAL_XS = [-4.5, -3.5, -2.5, -1.5, -0.5, 0.5, 1.5, 2.5, 3.5, 4.5];
+const COLOR_HEXS = [0xff2a2a, 0x4af626, 0x00e5ff, 0xffb300, 0x1a1a1a, 0xffffff, 0xaa44ff, 0xff69b4, 0xff6600, 0x2255ff];
+const COLOR_NAMES = ["T0_RED", "T1_GREEN", "T2_CYAN", "T3_AMBER", "T4_BLACK", "T5_WHITE", "T6_PURPLE", "T7_PINK", "T8_ORANGE", "T9_BLUE"];
 
 // App state variables
 let scene, camera, renderer, controls;
@@ -195,8 +195,8 @@ function init() {
 
   // Three.js Scene
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x060608);
-  scene.fog = new THREE.FogExp2(0x060608, 0.015);
+  scene.background = new THREE.Color(0x1a1a22);
+  scene.fog = new THREE.FogExp2(0x1a1a22, 0.008);
 
   // Camera
   camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 100);
@@ -218,10 +218,10 @@ function init() {
   controls.target.set(0, 2.0, 0);
 
   // Lighting
-  const ambientLight = new THREE.AmbientLight(0x1a1a24);
+  const ambientLight = new THREE.AmbientLight(0x404855);
   scene.add(ambientLight);
 
-  const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  const mainLight = new THREE.DirectionalLight(0xffffff, 1.5);
   mainLight.position.set(5, 12, 6);
   mainLight.castShadow = true;
   mainLight.shadow.mapSize.width = 2048;
@@ -235,11 +235,11 @@ function init() {
   mainLight.shadow.camera.bottom = -d;
   scene.add(mainLight);
 
-  const fillLight = new THREE.DirectionalLight(0x00e5ff, 0.3); // Cyber blue fill
+  const fillLight = new THREE.DirectionalLight(0x88ccff, 0.5);
   fillLight.position.set(-8, 5, -5);
   scene.add(fillLight);
 
-  const rimLight = new THREE.DirectionalLight(0xff2a2a, 0.2); // Hazard red rim
+  const rimLight = new THREE.DirectionalLight(0xffaa88, 0.35);
   rimLight.position.set(0, 2, -10);
   scene.add(rimLight);
 
@@ -355,7 +355,7 @@ function createGroundGrid() {
 
 function buildRobot() {
   // Materials
-  const ironMat = new THREE.MeshStandardMaterial({ color: 0x24252a, metalness: 0.8, roughness: 0.3 }); // Graphite Gray
+  const ironMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, metalness: 0.05, roughness: 0.45 }); // White Plastic
   const brightYellowMat = new THREE.MeshStandardMaterial({ color: 0xc5a059, metalness: 0.9, roughness: 0.15 }); // Premium Brushed Gold Accent
   const jointCapMat = new THREE.MeshStandardMaterial({ color: 0x1a4ae6, metalness: 0.8, roughness: 0.2 }); // Anodized Cobalt Blue
   const steelMat = new THREE.MeshStandardMaterial({ color: 0x909098, metalness: 0.95, roughness: 0.1 }); // Polished Titanium
@@ -585,96 +585,125 @@ function buildRobot() {
 
 function buildCassette() {
   // The cassette is a sliding track system behind the arm at Z = -12.5, sliding along X
-  const trackMat = new THREE.MeshStandardMaterial({ color: 0x33333e, metalness: 0.8 });
-  const carriageMat = new THREE.MeshStandardMaterial({ color: 0x222227, metalness: 0.8 });
+  const trackMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, metalness: 0.05, roughness: 0.45 }); // White Plastic
+  const carriageMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, metalness: 0.05, roughness: 0.45 }); // White Plastic carriage
   
   // Linear rail support pillars
   const pillarGeo = new THREE.CylinderGeometry(0.2, 0.2, 4.5, 16);
   const pillar1 = new THREE.Mesh(pillarGeo, trackMat);
-  pillar1.position.set(-4.5, 2.25, -12.5);
+  pillar1.position.set(-5.5, 2.25, -12.5);
   scene.add(pillar1);
   
   const pillar2 = new THREE.Mesh(pillarGeo, trackMat);
-  pillar2.position.set(4.5, 2.25, -12.5);
+  pillar2.position.set(5.5, 2.25, -12.5);
   scene.add(pillar2);
 
   // The linear rail bar (along X-axis)
-  const railGeo = new THREE.CylinderGeometry(0.18, 0.18, 9.8, 16);
+  const railGeo = new THREE.CylinderGeometry(0.18, 0.18, 11.8, 16);
   railGeo.rotateZ(Math.PI / 2);
   cassetteRail = new THREE.Mesh(railGeo, trackMat);
   cassetteRail.position.set(0.0, 4.5, -12.5);
   scene.add(cassetteRail);
 
-  // Spool Rack Frame
-  const rackMat = new THREE.MeshStandardMaterial({ color: 0x1e1e24, metalness: 0.9 });
-  const rackGeo = new THREE.BoxGeometry(8.5, 6.0, 0.2);
-  const rack = new THREE.Mesh(rackGeo, rackMat);
-  rack.position.set(0.0, 3.0, -15.5);
-  scene.add(rack);
+  // U-frame spool holder materials (Creality-style)
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.95, roughness: 0.05 }); // Chrome spool holders
+  const rollerMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.95, roughness: 0.05 }); // Chrome roller
+  const rackMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.95, roughness: 0.05 }); // Chrome spool core
 
-  // Spool spindles / holders
-  const bracketSteelMat = new THREE.MeshStandardMaterial({ 
-    color: 0x9e9ea6, 
-    metalness: 0.8, 
-    roughness: 0.2,
-    emissive: 0x1a1a1c 
-  });
-  const spindleGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.75, 12);
-  spindleGeo.rotateZ(Math.PI / 2); // along X-axis
- 
-  // Spool support brackets (heavy-duty dual vertical steel plates extending to the bottom of the rack)
-  const bracketGeo = new THREE.BoxGeometry(0.05, 3.0, 0.8);
- 
-  // Build 4 filament spools (fixed rack behind Z = -12.5)
-  for (let i = 0; i < 4; i++) {
+  // Shared geometries for all holders
+  const sidePlateGeo = new THREE.BoxGeometry(0.04, 2.6, 1.4);
+  const basePlateGeo = new THREE.BoxGeometry(0.5, 0.06, 1.4);
+  const footGeo = new THREE.BoxGeometry(0.7, 0.06, 0.4);
+  const rollerGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.55, 12);
+  rollerGeo.rotateZ(Math.PI / 2);
+  const rivetGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.05, 8);
+
+  // Build filament spools with U-frame holders
+  for (let i = 0; i < SLOT_LOCAL_XS.length; i++) {
     const sx = SLOT_LOCAL_XS[i];
-    
-    // Spindle (axle)
-    const spin = new THREE.Mesh(spindleGeo, bracketSteelMat);
-    spin.position.set(sx, 5.5, -14.9);
-    scene.add(spin);
- 
-    // Support brackets left and right of spool
-    const bracketL = new THREE.Mesh(bracketGeo, bracketSteelMat);
-    bracketL.position.set(sx - 0.26, 4.5, -15.2);
-    scene.add(bracketL);
- 
-    const bracketR = new THREE.Mesh(bracketGeo, bracketSteelMat);
-    bracketR.position.set(sx + 0.26, 4.5, -15.2);
-    scene.add(bracketR);
+    const holderGroup = new THREE.Group();
+    holderGroup.position.set(sx, 5.0, -14.9);
 
-    // Filament Spool wheel
+    // Left side plate
+    const sideL = new THREE.Mesh(sidePlateGeo, frameMat);
+    sideL.position.set(-0.27, 1.3, 0);
+    sideL.castShadow = true;
+    holderGroup.add(sideL);
+
+    // Right side plate
+    const sideR = new THREE.Mesh(sidePlateGeo, frameMat);
+    sideR.position.set(0.27, 1.3, 0);
+    sideR.castShadow = true;
+    holderGroup.add(sideR);
+
+    // Base plate connecting sides at bottom
+    const base = new THREE.Mesh(basePlateGeo, frameMat);
+    base.position.set(0, 0.03, 0);
+    holderGroup.add(base);
+
+    // Curved feet (front and back, wider than frame)
+    const footFL = new THREE.Mesh(footGeo, frameMat);
+    footFL.position.set(-0.27, -0.03, 0.55);
+    holderGroup.add(footFL);
+    const footFR = new THREE.Mesh(footGeo, frameMat);
+    footFR.position.set(0.27, -0.03, 0.55);
+    holderGroup.add(footFR);
+    const footBL = new THREE.Mesh(footGeo, frameMat);
+    footBL.position.set(-0.27, -0.03, -0.55);
+    holderGroup.add(footBL);
+    const footBR = new THREE.Mesh(footGeo, frameMat);
+    footBR.position.set(0.27, -0.03, -0.55);
+    holderGroup.add(footBR);
+
+    // Roller/spindle at top between side plates
+    const roller = new THREE.Mesh(rollerGeo, rollerMat);
+    roller.position.set(0, 2.5, 0);
+    holderGroup.add(roller);
+
+    // Decorative rivets on side plates (3 per side)
+    for (let r = 0; r < 3; r++) {
+      const rivetL = new THREE.Mesh(rivetGeo, rollerMat);
+      rivetL.position.set(-0.26, 0.4 + r * 0.8, 0.3);
+      rivetL.rotation.z = Math.PI / 2;
+      holderGroup.add(rivetL);
+      const rivetR = new THREE.Mesh(rivetGeo, rollerMat);
+      rivetR.position.set(0.26, 0.4 + r * 0.8, 0.3);
+      rivetR.rotation.z = Math.PI / 2;
+      holderGroup.add(rivetR);
+    }
+
+    scene.add(holderGroup);
+
+    // Filament Spool wheel (sits on the roller)
     const spoolGroup = new THREE.Group();
-    spoolGroup.position.set(sx, 5.5, -14.9);
-    
-    // Inner core
+    spoolGroup.position.set(sx, 7.5, -14.9);
+
+    // Inner core (crystal plastic)
     const coreGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.4, 24);
-    coreGeo.rotateZ(Math.PI / 2); // along X-axis
-    const core = new THREE.Mesh(coreGeo, rackMat);
+    coreGeo.rotateZ(Math.PI / 2);
+    const coreMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, roughness: 0.1, metalness: 0.0, clearcoat: 1.0 });
+    const core = new THREE.Mesh(coreGeo, coreMat);
     spoolGroup.add(core);
 
     // Filament winding (colored cylinder)
     const filGeo = new THREE.CylinderGeometry(1.2, 1.2, 0.38, 24);
-    filGeo.rotateZ(Math.PI / 2); // along X-axis
-    const filMat = new THREE.MeshStandardMaterial({ 
-      color: COLOR_HEXS[i], 
-      roughness: 0.7 
-    });
+    filGeo.rotateZ(Math.PI / 2);
+    const filMat = new THREE.MeshStandardMaterial({ color: COLOR_HEXS[i], roughness: 0.7 });
     const fil = new THREE.Mesh(filGeo, filMat);
     spoolGroup.add(fil);
 
-    // Outer rims
+    // Outer rims (crystal plastic)
     const rimGeo = new THREE.CylinderGeometry(1.35, 1.35, 0.02, 24);
-    rimGeo.rotateZ(Math.PI / 2); // along X-axis
-    const rimL = new THREE.Mesh(rimGeo, carriageMat);
+    rimGeo.rotateZ(Math.PI / 2);
+    const rimMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, roughness: 0.1, metalness: 0.0, clearcoat: 1.0 });
+    const rimL = new THREE.Mesh(rimGeo, rimMat);
     rimL.position.x = -0.21;
     spoolGroup.add(rimL);
-
-    const rimR = new THREE.Mesh(rimGeo, carriageMat);
+    const rimR = new THREE.Mesh(rimGeo, rimMat);
     rimR.position.x = 0.21;
     spoolGroup.add(rimR);
 
-    // Dynamic rotation marker/label sticker on the outer rim face
+    // Rotation marker label on outer rim
     const labelGeo = new THREE.BoxGeometry(0.02, 0.5, 0.12);
     const labelMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const label = new THREE.Mesh(labelGeo, labelMat);
@@ -682,7 +711,7 @@ function buildCassette() {
     spoolGroup.add(label);
 
     scene.add(spoolGroup);
-    spools.push(spoolGroup); // to animate rotation
+    spools.push(spoolGroup);
   }
 
   // The sliding carriage that moves along the rail (centered initially at X = 0)
@@ -690,15 +719,15 @@ function buildCassette() {
   cassetteCarriage.position.set(0.0, 4.5, -12.5);
   scene.add(cassetteCarriage);
 
-  const carriageGeo = new THREE.BoxGeometry(7.8, 0.4, 0.8);
+  const carriageGeo = new THREE.BoxGeometry(10.8, 0.4, 0.8);
   const carriageMesh = new THREE.Mesh(carriageGeo, carriageMat);
   cassetteCarriage.add(carriageMesh);
 
-  // Add 4 brackets/holders spaced at local X coords
-  const bracketMat = new THREE.MeshStandardMaterial({ color: 0x44444c, metalness: 0.8 });
+  // Add brackets/holders spaced at local X coords
+  const bracketMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.95, roughness: 0.05 }); // Chrome toolhead holders
   const forkGeo = new THREE.BoxGeometry(0.7, 0.08, 0.5); // fork flat in X-Z
-  
-  for (let i = 0; i < 4; i++) {
+
+  for (let i = 0; i < SLOT_LOCAL_XS.length; i++) {
     const slotX = SLOT_LOCAL_XS[i];
     
     // Create holder group
@@ -811,13 +840,9 @@ function Toolhead(colorIdx, colorHex) {
 // DYNAMIC FILAMENT BOWDEN TUBES
 // ----------------------------------------------------
 function createBowdenTubes() {
-  const tubeMat0 = new THREE.LineBasicMaterial({ color: 0xff2a2a, linewidth: 2 });
-  const tubeMat1 = new THREE.LineBasicMaterial({ color: 0x4af626, linewidth: 2 });
-  const tubeMat2 = new THREE.LineBasicMaterial({ color: 0x00e5ff, linewidth: 2 });
-  const tubeMat3 = new THREE.LineBasicMaterial({ color: 0xffb300, linewidth: 2 });
-  const materials = [tubeMat0, tubeMat1, tubeMat2, tubeMat3];
+  const materials = COLOR_HEXS.map(c => new THREE.LineBasicMaterial({ color: c, linewidth: 2 }));
 
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < SLOT_LOCAL_XS.length; i++) {
     const geom = new THREE.BufferGeometry();
     const positions = new Float32Array(20 * 3);
     geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -828,12 +853,12 @@ function createBowdenTubes() {
 }
 
 function updateBowdenTubes() {
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < SLOT_LOCAL_XS.length; i++) {
     const tube = bowdenTubes[i];
     const toolhead = toolheads[i];
     
     // Start point is the spool outlet (outer front-top edge of the winding)
-    const pStart = new THREE.Vector3(SLOT_LOCAL_XS[i], 6.35, -14.05);
+    const pStart = new THREE.Vector3(SLOT_LOCAL_XS[i], 8.35, -14.05);
 
     // End point is the top of the toolhead
     const pEnd = new THREE.Vector3();
@@ -1268,6 +1293,7 @@ function startProgressiveSlice(numLayers, onComplete) {
       // Generate G-code queue
       lastSlicedLayers = slicedLayers;
       generatePrintQueue(slicedLayers);
+      buildLayerHologram(slicedLayers);
       onComplete();
     }
   }
@@ -1288,8 +1314,8 @@ function generatePrintQueue(slicedLayers) {
     if (modelConfig.colorMode === 'single') {
       colorIdx = singleColorIdx;
     } else {
-      colorIdx = Math.floor((l / slicedLayers.length) * 4);
-      colorIdx = Math.min(3, Math.max(0, colorIdx));
+      colorIdx = Math.floor((l / slicedLayers.length) * COLOR_HEXS.length);
+      colorIdx = Math.min(COLOR_HEXS.length - 1, Math.max(0, colorIdx));
     }
 
     if (colorIdx !== lastColorIdx) {
@@ -1352,24 +1378,24 @@ function getTransformedTriangles() {
   return transformed;
 }
 
+let hologramIsLayerPreview = false;
+
 function updateHologramGeometry(geom) {
   if (hologramMesh) {
     scene.remove(hologramMesh);
   }
+  hologramIsLayerPreview = false;
   if (!geom) return;
-  
+
   const normalizedGeom = geom.clone();
-  
-  // 1. Find flattest normal of raw geometry
+
   const rawTris = getTrianglesFromGeometry(geom);
   const nBest = findFlattestNormal(rawTris);
   const targetNormal = new THREE.Vector3(0, -1, 0);
   const quat = new THREE.Quaternion().setFromUnitVectors(nBest, targetNormal);
-  
-  // 2. Rotate geometry to align flattest face to bottom (FIXED: using applyMatrix4 instead of applyQuaternion)
+
   normalizedGeom.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(quat));
-  
-  // 3. Normalize bounding box and position
+
   normalizedGeom.computeBoundingBox();
   const bbox = normalizedGeom.boundingBox;
   const sizeX = bbox.max.x - bbox.min.x;
@@ -1377,15 +1403,15 @@ function updateHologramGeometry(geom) {
   const sizeZ = bbox.max.z - bbox.min.z;
   const maxDim = Math.max(sizeX, sizeY, sizeZ);
   const scale = 5.0 / (maxDim || 1.0);
-  
+
   const centerX = (bbox.min.x + bbox.max.x) / 2;
   const centerZ = (bbox.min.z + bbox.max.z) / 2;
-  
+
   normalizedGeom.translate(-centerX, -bbox.min.y, -centerZ);
   normalizedGeom.scale(scale, scale, scale);
-  
+
   hologramMesh = new THREE.Group();
-  
+
   const wireframeMat = new THREE.MeshBasicMaterial({
     color: 0x00e5ff,
     wireframe: true,
@@ -1395,7 +1421,7 @@ function updateHologramGeometry(geom) {
   });
   const wireMesh = new THREE.Mesh(normalizedGeom, wireframeMat);
   hologramMesh.add(wireMesh);
-  
+
   const solidMat = new THREE.MeshBasicMaterial({
     color: 0x00e5ff,
     transparent: true,
@@ -1405,13 +1431,74 @@ function updateHologramGeometry(geom) {
   });
   const solidMesh = new THREE.Mesh(normalizedGeom, solidMat);
   hologramMesh.add(solidMesh);
-  
+
   applyConfigTransformsToHologram();
   scene.add(hologramMesh);
 }
 
+function buildLayerHologram(slicedLayers) {
+  const wasVisible = hologramMesh ? hologramMesh.visible : true;
+  if (hologramMesh) {
+    scene.remove(hologramMesh);
+  }
+
+  hologramMesh = new THREE.Group();
+  hologramIsLayerPreview = true;
+
+  const singleColorIdx = (currentToolIdx !== -1) ? currentToolIdx : 0;
+  const matCache = {};
+
+  for (let l = 0; l < slicedLayers.length; l++) {
+    const layer = slicedLayers[l];
+
+    let colorIdx;
+    if (modelConfig.colorMode === 'single') {
+      colorIdx = singleColorIdx;
+    } else {
+      colorIdx = Math.floor((l / slicedLayers.length) * COLOR_HEXS.length);
+      colorIdx = Math.min(COLOR_HEXS.length - 1, Math.max(0, colorIdx));
+    }
+
+    if (!matCache[colorIdx]) {
+      matCache[colorIdx] = new THREE.MeshBasicMaterial({
+        color: COLOR_HEXS[colorIdx],
+        transparent: true,
+        opacity: 0.12,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+    }
+    const mat = matCache[colorIdx];
+
+    for (const path of layer.paths) {
+      if (path.length < 3) continue;
+
+      try {
+        const shape = new THREE.Shape();
+        shape.moveTo(path[0].x, -path[0].z);
+        for (let p = 1; p < path.length; p++) {
+          shape.lineTo(path[p].x, -path[p].z);
+        }
+        shape.closePath();
+
+        const shapeGeo = new THREE.ShapeGeometry(shape);
+        shapeGeo.rotateX(-Math.PI / 2);
+
+        const mesh = new THREE.Mesh(shapeGeo, mat);
+        mesh.position.y = layer.y;
+        hologramMesh.add(mesh);
+      } catch (e) {
+        // Skip layers with degenerate contours
+      }
+    }
+  }
+
+  hologramMesh.visible = wasVisible;
+  scene.add(hologramMesh);
+}
+
 function applyConfigTransformsToHologram() {
-  if (!hologramMesh) return;
+  if (!hologramMesh || hologramIsLayerPreview) return;
   hologramMesh.position.set(modelConfig.x, 0.22, modelConfig.z);
   hologramMesh.rotation.set(modelConfig.rotX, modelConfig.rotY, modelConfig.rotZ, 'XYZ');
   hologramMesh.scale.set(modelConfig.scale, modelConfig.scale, modelConfig.scale);
@@ -1538,7 +1625,7 @@ function animate() {
   interpolateJoints();
 
   if (Math.abs(currentCarriageX - targetCarriageX) > 0.005) {
-    currentCarriageX += (targetCarriageX - currentCarriageX) * 0.08 * simSpeed;
+    currentCarriageX += (targetCarriageX - currentCarriageX) * 0.12;
     cassetteCarriage.position.x = currentCarriageX;
     document.getElementById('stat-atc-pos').innerText = `X: ${currentCarriageX.toFixed(2)}`;
   }
@@ -1634,7 +1721,7 @@ function triggerToolChange(colorIdx) {
   }
   
   targetToolIdx = colorIdx;
-  atcState = 'DOCK_APPROACH';
+  atcState = 'SAFE_LIFT';
   atcProgress = 0;
   toolchangePrevPos.copy(tcpTargetPos);
   toolchangeReturnIndex = queueIndex;
@@ -1645,20 +1732,27 @@ function triggerToolChange(colorIdx) {
 }
 
 function processToolChangeSequence() {
-  const speedCoeff = 0.06 * Math.min(2.0, simSpeed);
+  const speedCoeff = 0.12;
 
   switch (atcState) {
-    case 'DOCK_APPROACH':
-      if (currentToolIdx === -1) {
-        targetCarriageX = -SLOT_LOCAL_XS[targetToolIdx];
-        atcState = 'SLIDE_CASSETTE';
-        logConsole(`Initial tool pickup. Aligning Slot ${targetToolIdx} (${COLOR_NAMES[targetToolIdx]}).`);
-        break;
+    case 'SAFE_LIFT':
+      const tSafeLift = new THREE.Vector3(0, 9, -6);
+      tcpTargetPos.lerp(tSafeLift, speedCoeff);
+      if (tcpTargetPos.distanceTo(tSafeLift) < 0.1) {
+        tcpTargetPos.copy(tSafeLift);
+        if (currentToolIdx === -1) {
+          targetCarriageX = -SLOT_LOCAL_XS[targetToolIdx];
+          atcState = 'SLIDE_CASSETTE';
+          logConsole(`Initial tool pickup. Aligning Slot ${targetToolIdx} (${COLOR_NAMES[targetToolIdx]}).`);
+        } else {
+          atcState = 'DOCK_APPROACH';
+        }
       }
+      break;
 
-      const curSlotX = SLOT_LOCAL_XS[currentToolIdx];
+    case 'DOCK_APPROACH':
       const tApproach = new THREE.Vector3(DOCK_X, DOCK_Y, APPROACH_Z);
-      
+
       tcpTargetPos.lerp(tApproach, speedCoeff);
       if (tcpTargetPos.distanceTo(tApproach) < 0.05) {
         tcpTargetPos.copy(tApproach);
@@ -1733,18 +1827,30 @@ function processToolChangeSequence() {
 
     case 'RETRACT_DOCK':
       const tRetract = new THREE.Vector3(DOCK_X, DOCK_Y, APPROACH_Z);
-      
+
       tcpTargetPos.lerp(tRetract, speedCoeff);
       if (tcpTargetPos.distanceTo(tRetract) < 0.05) {
         tcpTargetPos.copy(tRetract);
+        atcState = 'SAFE_RETURN';
+      }
+      break;
+
+    case 'SAFE_RETURN':
+      const tSafeReturn = new THREE.Vector3(0, 9, -6);
+      tcpTargetPos.lerp(tSafeReturn, speedCoeff);
+      if (tcpTargetPos.distanceTo(tSafeReturn) < 0.1) {
+        tcpTargetPos.copy(tSafeReturn);
         atcState = 'COMPLETE';
       }
       break;
 
     case 'COMPLETE':
-      tcpTargetPos.copy(toolchangePrevPos);
-      atcState = 'IDLE';
-      logConsole("ATC Toolchange cycle complete. Resuming print.", "success");
+      tcpTargetPos.lerp(toolchangePrevPos, speedCoeff);
+      if (tcpTargetPos.distanceTo(toolchangePrevPos) < 0.05) {
+        tcpTargetPos.copy(toolchangePrevPos);
+        atcState = 'IDLE';
+        logConsole("ATC Toolchange cycle complete. Resuming print.", "success");
+      }
       break;
   }
 }
@@ -1766,7 +1872,7 @@ function dockActiveToolhead() {
   document.getElementById('stat-toolhead').style.color = "var(--border-color)";
 
   // Remove active highlight from all manual toolhead buttons
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < SLOT_LOCAL_XS.length; i++) {
     const btn = document.getElementById(`btn-tool-${i}`);
     if (btn) {
       btn.style.backgroundColor = '';
@@ -1793,7 +1899,7 @@ function pickupTargetToolhead() {
   logConsole(`Flange coupled with toolhead T${currentToolIdx}.`, "success");
 
   // Highlight the active manual toolhead button with its filament color
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < SLOT_LOCAL_XS.length; i++) {
     const btn = document.getElementById(`btn-tool-${i}`);
     if (btn) {
       if (i === currentToolIdx) {
@@ -1811,6 +1917,7 @@ function pickupTargetToolhead() {
   // Prevent resetting print queue index mid-print
   if (modelConfig.colorMode === 'single' && lastSlicedLayers.length > 0 && !isPrinting) {
     generatePrintQueue(lastSlicedLayers);
+    buildLayerHologram(lastSlicedLayers);
   }
 }
 
@@ -1838,7 +1945,10 @@ function interpolateJoints() {
   const lerpFactor = 0.15 * Math.min(2.0, simSpeed);
 
   for (let i = 0; i < 6; i++) {
-    actualTheta[i] += (targetTheta[i] - actualTheta[i]) * lerpFactor;
+    let diff = targetTheta[i] - actualTheta[i];
+    while (diff > Math.PI) diff -= 2 * Math.PI;
+    while (diff < -Math.PI) diff += 2 * Math.PI;
+    actualTheta[i] += diff * lerpFactor;
   }
 
   joint1.rotation.y = actualTheta[0];
@@ -1994,6 +2104,7 @@ function setupUIEventListeners() {
     logConsole("Color mode set to SINGLE COLOR.");
     if (lastSlicedLayers.length > 0) {
       generatePrintQueue(lastSlicedLayers);
+      buildLayerHologram(lastSlicedLayers);
     }
     if (!isPrinting && atcState === 'IDLE') reSliceModel();
   });
@@ -2065,14 +2176,17 @@ function setupUIEventListeners() {
     resetCamera();
   });
 
-  for (let i = 0; i < 4; i++) {
-    document.getElementById(`btn-tool-${i}`).addEventListener('click', () => {
-      if (atcState === 'IDLE') {
-        triggerToolChange(i);
-      } else {
-        logConsole("WARNING: ATC active. Clear sequence first.", "error");
-      }
-    });
+  for (let i = 0; i < SLOT_LOCAL_XS.length; i++) {
+    const toolBtn = document.getElementById(`btn-tool-${i}`);
+    if (toolBtn) {
+      toolBtn.addEventListener('click', () => {
+        if (atcState === 'IDLE') {
+          triggerToolChange(i);
+        } else {
+          logConsole("WARNING: ATC active. Clear sequence first.", "error");
+        }
+      });
+    }
   }
 
   const fileInput = document.getElementById('stl-file');
