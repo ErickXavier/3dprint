@@ -9,8 +9,8 @@ const BASE_OFFSET_Z = -6.0;
 
 const DOCK_X = 0.0; // Docking insertion X
 const DOCK_Y = 3.0;  // Docking insertion Y
-const DOCK_Z = -9.0; // Docking insertion Z (the slot center)
-const APPROACH_Z = -7.0; // Docking approach Z (in front of slot)
+const DOCK_Z = -11.0; // Docking insertion Z (the slot center)
+const APPROACH_Z = -9.0; // Docking approach Z (in front of slot)
 
 // Slots relative X coordinates on carriage
 const SLOT_LOCAL_XS = [-3.0, -1.0, 1.0, 3.0];
@@ -502,50 +502,50 @@ function buildRobot() {
 }
 
 function buildCassette() {
-  // The cassette is a sliding track system behind the arm at Z = -10.5, sliding along X
+  // The cassette is a sliding track system behind the arm at Z = -12.5, sliding along X
   const trackMat = new THREE.MeshStandardMaterial({ color: 0x33333e, metalness: 0.8 });
   const carriageMat = new THREE.MeshStandardMaterial({ color: 0x222227, metalness: 0.8 });
   
   // Linear rail support pillars
   const pillarGeo = new THREE.CylinderGeometry(0.2, 0.2, 4.5, 16);
   const pillar1 = new THREE.Mesh(pillarGeo, trackMat);
-  pillar1.position.set(-4.5, 2.25, -10.5);
+  pillar1.position.set(-4.5, 2.25, -12.5);
   scene.add(pillar1);
   
   const pillar2 = new THREE.Mesh(pillarGeo, trackMat);
-  pillar2.position.set(4.5, 2.25, -10.5);
+  pillar2.position.set(4.5, 2.25, -12.5);
   scene.add(pillar2);
 
   // The linear rail bar (along X-axis)
   const railGeo = new THREE.CylinderGeometry(0.18, 0.18, 9.8, 16);
   railGeo.rotateZ(Math.PI / 2);
   cassetteRail = new THREE.Mesh(railGeo, trackMat);
-  cassetteRail.position.set(0.0, 4.5, -10.5);
+  cassetteRail.position.set(0.0, 4.5, -12.5);
   scene.add(cassetteRail);
 
   // Spool Rack Frame
   const rackMat = new THREE.MeshStandardMaterial({ color: 0x1e1e24, metalness: 0.9 });
   const rackGeo = new THREE.BoxGeometry(8.5, 6.0, 0.2);
   const rack = new THREE.Mesh(rackGeo, rackMat);
-  rack.position.set(0.0, 3.0, -12.3);
+  rack.position.set(0.0, 3.0, -14.3);
   scene.add(rack);
 
   // Spool spindles / holders
   const spindleGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.8, 12);
   spindleGeo.rotateX(Math.PI / 2); // along Z-axis
 
-  // Build 4 filament spools (fixed rack behind Z = -10.5)
+  // Build 4 filament spools (fixed rack behind Z = -12.5)
   for (let i = 0; i < 4; i++) {
     const sx = SLOT_LOCAL_XS[i];
     
     // Spindle
     const spin = new THREE.Mesh(spindleGeo, rackMat);
-    spin.position.set(sx, 5.5, -12.0);
+    spin.position.set(sx, 5.5, -14.0);
     scene.add(spin);
 
     // Filament Spool wheel
     const spoolGroup = new THREE.Group();
-    spoolGroup.position.set(sx, 5.5, -11.7);
+    spoolGroup.position.set(sx, 5.5, -13.7);
     
     // Inner core
     const coreGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.35, 24);
@@ -580,7 +580,7 @@ function buildCassette() {
 
   // The sliding carriage that moves along the rail (centered initially at X = 0)
   cassetteCarriage = new THREE.Group();
-  cassetteCarriage.position.set(0.0, 4.5, -10.5);
+  cassetteCarriage.position.set(0.0, 4.5, -12.5);
   scene.add(cassetteCarriage);
 
   const carriageGeo = new THREE.BoxGeometry(7.8, 0.4, 0.8);
@@ -726,7 +726,7 @@ function updateBowdenTubes() {
     const toolhead = toolheads[i];
     
     // Start point is the spool outlet (fixed behind rail)
-    const pStart = new THREE.Vector3(SLOT_LOCAL_XS[i], 5.5, -11.7);
+    const pStart = new THREE.Vector3(SLOT_LOCAL_XS[i], 5.5, -13.7);
 
     // End point is the top of the toolhead
     const pEnd = new THREE.Vector3();
