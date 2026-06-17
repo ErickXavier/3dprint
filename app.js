@@ -19,7 +19,7 @@ const COLOR_NAMES = ["T0_RED", "T1_GREEN", "T2_CYAN", "T3_AMBER"];
 
 // App state variables
 let scene, camera, renderer, controls;
-let robotBase, joint1, joint2, joint3, joint4, joint5, joint6, flange;
+let robotBase, joint1, joint2, joint3, joint4, joint5, joint6, flange, flangeLed;
 let clawL, clawR;
 let cassetteCarriage, cassetteRail, spools = [];
 let toolheads = []; // instances
@@ -355,10 +355,10 @@ function createGroundGrid() {
 
 function buildRobot() {
   // Materials
-  const ironMat = new THREE.MeshStandardMaterial({ color: 0x28282e, metalness: 0.8, roughness: 0.25 });
-  const brightYellowMat = new THREE.MeshStandardMaterial({ color: 0xe59800, metalness: 0.5, roughness: 0.3 }); // Hazard Orange/Yellow
-  const jointCapMat = new THREE.MeshStandardMaterial({ color: 0xff2a2a, metalness: 0.6, roughness: 0.1 });
-  const steelMat = new THREE.MeshStandardMaterial({ color: 0x888890, metalness: 0.9, roughness: 0.15 });
+  const ironMat = new THREE.MeshStandardMaterial({ color: 0x24252a, metalness: 0.8, roughness: 0.3 }); // Graphite Gray
+  const brightYellowMat = new THREE.MeshStandardMaterial({ color: 0xc5a059, metalness: 0.9, roughness: 0.15 }); // Premium Brushed Gold Accent
+  const jointCapMat = new THREE.MeshStandardMaterial({ color: 0x1a4ae6, metalness: 0.8, roughness: 0.2 }); // Anodized Cobalt Blue
+  const steelMat = new THREE.MeshStandardMaterial({ color: 0x909098, metalness: 0.95, roughness: 0.1 }); // Polished Titanium
 
   // Base pedestal (placed behind at Z = BASE_OFFSET_Z)
   const baseGeo = new THREE.CylinderGeometry(1.6, 1.8, 0.5, 32);
@@ -367,6 +367,15 @@ function buildRobot() {
   baseMesh.castShadow = true;
   baseMesh.receiveShadow = true;
   scene.add(baseMesh);
+
+  // Pedestal Mounting Bolts (Realistic mechanical detail)
+  const boltGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.08, 8);
+  for (let r = 0; r < 8; r++) {
+    const angle = (r / 8) * Math.PI * 2;
+    const bolt = new THREE.Mesh(boltGeo, steelMat);
+    bolt.position.set(Math.cos(angle) * 1.7, 0.52, BASE_OFFSET_Z + Math.sin(angle) * 1.7);
+    scene.add(bolt);
+  }
 
   // Robot Base coordinate frame (contains joint1 group)
   robotBase = new THREE.Group();
@@ -384,16 +393,35 @@ function buildRobot() {
   l1Base.castShadow = true;
   joint1.add(l1Base);
 
+  // Glowing Diagnostics Status Ring on base turret
+  const ringGeo = new THREE.TorusGeometry(1.32, 0.02, 8, 48);
+  ringGeo.rotateX(Math.PI / 2);
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff }); // Glowing Cyan
+  const statusRing = new THREE.Mesh(ringGeo, ringMat);
+  statusRing.position.set(0, 0.81, 0);
+  joint1.add(statusRing);
+
+  // Turret Ventilation Grilles
+  const grilleGeo = new THREE.BoxGeometry(0.5, 0.3, 0.02);
+  const grilleMat = new THREE.MeshStandardMaterial({ color: 0x111115, metalness: 0.1, roughness: 0.9 });
+  for (let j = 0; j < 4; j++) {
+    const angle = (j / 4) * Math.PI * 2;
+    const grille = new THREE.Mesh(grilleGeo, grilleMat);
+    grille.position.set(Math.cos(angle) * 1.29, 0.4, Math.sin(angle) * 1.29);
+    grille.rotation.y = -angle + Math.PI / 2;
+    joint1.add(grille);
+  }
+
   const l1BodyGeo = new THREE.BoxGeometry(1.6, L1 - 0.8, 1.6);
   const l1Body = new THREE.Mesh(l1BodyGeo, ironMat);
   l1Body.position.set(0, 0.8 + (L1 - 0.8) / 2, 0);
   l1Body.castShadow = true;
   joint1.add(l1Body);
 
-  // Hazard stripe decals
-  const stripeGeo = new THREE.BoxGeometry(1.64, 0.15, 0.8);
+  // Gold accent band instead of yellow decal stripe
+  const stripeGeo = new THREE.BoxGeometry(1.64, 0.1, 0.8);
   const stripeDecal = new THREE.Mesh(stripeGeo, brightYellowMat);
-  stripeDecal.position.set(0, L1 - 1.2, 0);
+  stripeDecal.position.set(0, L1 - 1.2, 0.42); // flush on front face
   joint1.add(stripeDecal);
 
   // Joint 2: Rotates about horizontal X at Y = L1
@@ -425,13 +453,30 @@ function buildRobot() {
   colR.castShadow = true;
   l2UpperArm.add(colR);
 
-  // Cross braces
-  const braceGeo = new THREE.BoxGeometry(0.8, 0.1, 0.1);
-  for (let yOffset = 0.8; yOffset < L2; yOffset += 1.2) {
-    const brace = new THREE.Mesh(braceGeo, brightYellowMat);
-    brace.position.set(0, yOffset, 0);
-    l2UpperArm.add(brace);
+  // Premium Diagonal X-bracing (Brushed Gold)
+  const braceGeo = new THREE.BoxGeometry(0.8, 0.04, 0.04);
+  for (let yOffset = 0.6; yOffset < L2 - 0.4; yOffset += 1.2) {
+    const brace1 = new THREE.Mesh(braceGeo, brightYellowMat);
+    brace1.position.set(0, yOffset + 0.3, 0);
+    brace1.rotation.z = Math.PI / 6;
+    l2UpperArm.add(brace1);
+
+    const brace2 = new THREE.Mesh(braceGeo, brightYellowMat);
+    brace2.position.set(0, yOffset + 0.3, 0);
+    brace2.rotation.z = -Math.PI / 6;
+    l2UpperArm.add(brace2);
   }
+
+  // Heavy-duty Hydraulic Piston detail on the front of upper arm
+  const pistonCylinderGeo = new THREE.CylinderGeometry(0.12, 0.12, L2 * 0.55, 16);
+  const pistonCylinder = new THREE.Mesh(pistonCylinderGeo, ironMat);
+  pistonCylinder.position.set(0, L2 * 0.32, 0.35);
+  l2UpperArm.add(pistonCylinder);
+  
+  const pistonShaftGeo = new THREE.CylinderGeometry(0.06, 0.06, L2 * 0.55, 12);
+  const pistonShaft = new THREE.Mesh(pistonShaftGeo, steelMat);
+  pistonShaft.position.set(0, L2 * 0.72, 0.35);
+  l2UpperArm.add(pistonShaft);
 
   // Joint 3: Rotates about horizontal X at end of Link 2
   joint3 = new THREE.Group();
@@ -455,6 +500,19 @@ function buildRobot() {
   col3.castShadow = true;
   l3Forearm.add(col3);
 
+  // Forearm Conduit Bands (Rubber guides for wiring)
+  const bandGeo = new THREE.CylinderGeometry(0.31, 0.33, 0.08, 16);
+  const bandMat = new THREE.MeshStandardMaterial({ color: 0x151518, metalness: 0.1, roughness: 0.8 });
+  for (let y = L3 * 0.2; y < L3 * 0.9; y += L3 * 0.3) {
+    const band = new THREE.Mesh(bandGeo, bandMat);
+    band.position.y = y;
+    // Taper band to match cylinder taper
+    const ratio = 1 - (y / L3); 
+    const rCur = 0.28 + ratio * 0.12;
+    band.scale.set(rCur / 0.3, 1, rCur / 0.3);
+    l3Forearm.add(band);
+  }
+
   // Joint 4: Forearm Roll (Rotates about Y in local frame)
   joint4 = new THREE.Group();
   joint4.position.set(0, L3, 0);
@@ -468,6 +526,16 @@ function buildRobot() {
   j5MotorGeo.rotateZ(Math.PI / 2);
   const j5Motor = new THREE.Mesh(j5MotorGeo, steelMat);
   joint5.add(j5Motor);
+
+  // Wrist Gold Highlight Rings
+  const wristRingGeo = new THREE.CylinderGeometry(0.31, 0.31, 0.08, 16);
+  wristRingGeo.rotateZ(Math.PI / 2);
+  const ring5L = new THREE.Mesh(wristRingGeo, brightYellowMat);
+  ring5L.position.x = -0.32;
+  const ring5R = new THREE.Mesh(wristRingGeo, brightYellowMat);
+  ring5R.position.x = 0.32;
+  joint5.add(ring5L);
+  joint5.add(ring5R);
 
   // Joint 6: Tool flange roll (Rotates about Z local axis)
   joint6 = new THREE.Group();
@@ -489,6 +557,20 @@ function buildRobot() {
   const clawBase = new THREE.Mesh(clawBaseGeo, steelMat);
   clawBase.position.y = -0.05;
   flange.add(clawBase);
+
+  // Gripper Guide Rod
+  const rodGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.7, 12);
+  rodGeo.rotateZ(Math.PI / 2);
+  const guideRod = new THREE.Mesh(rodGeo, steelMat);
+  guideRod.position.set(0, -0.05, 0.15);
+  flange.add(guideRod);
+
+  // Gripper Dynamic Status LED (Red when empty, Green when carrying a toolhead)
+  const ledGeo = new THREE.SphereGeometry(0.05, 8, 8);
+  const flangeLedMat = new THREE.MeshBasicMaterial({ color: 0xff2a2a });
+  flangeLed = new THREE.Mesh(ledGeo, flangeLedMat);
+  flangeLed.position.set(0, 0.1, 0.2);
+  flange.add(flangeLed);
 
   const fingerGeo = new THREE.BoxGeometry(0.1, 0.4, 0.15);
   
@@ -527,7 +609,7 @@ function buildCassette() {
   const rackMat = new THREE.MeshStandardMaterial({ color: 0x1e1e24, metalness: 0.9 });
   const rackGeo = new THREE.BoxGeometry(8.5, 6.0, 0.2);
   const rack = new THREE.Mesh(rackGeo, rackMat);
-  rack.position.set(0.0, 3.0, -14.3);
+  rack.position.set(0.0, 3.0, -15.5);
   scene.add(rack);
 
   // Spool spindles / holders
@@ -549,21 +631,21 @@ function buildCassette() {
     
     // Spindle (axle)
     const spin = new THREE.Mesh(spindleGeo, bracketSteelMat);
-    spin.position.set(sx, 5.5, -13.7);
+    spin.position.set(sx, 5.5, -14.9);
     scene.add(spin);
  
     // Support brackets left and right of spool
     const bracketL = new THREE.Mesh(bracketGeo, bracketSteelMat);
-    bracketL.position.set(sx - 0.26, 4.5, -14.0);
+    bracketL.position.set(sx - 0.26, 4.5, -15.2);
     scene.add(bracketL);
  
     const bracketR = new THREE.Mesh(bracketGeo, bracketSteelMat);
-    bracketR.position.set(sx + 0.26, 4.5, -14.0);
+    bracketR.position.set(sx + 0.26, 4.5, -15.2);
     scene.add(bracketR);
 
     // Filament Spool wheel
     const spoolGroup = new THREE.Group();
-    spoolGroup.position.set(sx, 5.5, -13.7);
+    spoolGroup.position.set(sx, 5.5, -14.9);
     
     // Inner core
     const coreGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.4, 24);
@@ -751,7 +833,7 @@ function updateBowdenTubes() {
     const toolhead = toolheads[i];
     
     // Start point is the spool outlet (outer front-top edge of the winding)
-    const pStart = new THREE.Vector3(SLOT_LOCAL_XS[i], 6.35, -12.85);
+    const pStart = new THREE.Vector3(SLOT_LOCAL_XS[i], 6.35, -14.05);
 
     // End point is the top of the toolhead
     const pEnd = new THREE.Vector3();
@@ -1462,7 +1544,12 @@ function animate() {
   }
 
   updateBowdenTubes();
-
+ 
+  // Update dynamic LED on robot tool flange (green when holding a toolhead, red when empty)
+  if (flangeLed) {
+    flangeLed.material.color.setHex(activeToolhead ? 0x00ff00 : 0xff2a2a);
+  }
+ 
   controls.update();
   renderer.render(scene, camera);
 }
