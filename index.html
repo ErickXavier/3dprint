@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>6-AXIS ROBOTIC 3D PRINTER SIMULATOR</title>
+  
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  
+  <!-- CSS Styles (Tactical Telemetry & CRT Terminal Archetype) -->
+  <style>
+    :root {
+      --bg-color: #08080a;
+      --panel-bg: #0c0c0f;
+      --border-color: #ff2a2a; /* Hazard Red */
+      --text-color: #eaeaea;   /* Phosphor White */
+      --accent-green: #4af626; /* Neon Green */
+      --accent-cyan: #00e5ff;  /* Telemetry Cyan */
+      --accent-amber: #ffb300; /* Amber warning */
+      --grid-border: #22222a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: 'Share Tech Mono', monospace;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* CRT Scanlines Overlay */
+    body::before {
+      content: " ";
+      display: block;
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.3) 50%), 
+                  linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+      background-size: 100% 4px, 6px 100%;
+      z-index: 99999;
+      pointer-events: none;
+      opacity: 0.25;
+    }
+
+    /* Main Grid Layout */
+    #dashboard {
+      display: grid;
+      grid-template-rows: 50px 1fr 150px;
+      grid-template-columns: 340px 1fr 340px;
+      height: 100vh;
+      width: 100vw;
+      gap: 1px;
+      background-color: var(--grid-border);
+    }
+
+    /* Panels Base */
+    .panel {
+      background-color: var(--panel-bg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header */
+    header {
+      grid-column: 1 / 4;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+      border-bottom: 2px solid var(--border-color);
+      background-color: var(--panel-bg);
+    }
+
+    header h1 {
+      font-size: 1.3rem;
+      font-weight: normal;
+      letter-spacing: 0.1em;
+      color: var(--text-color);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    header h1::before {
+      content: "▲";
+      color: var(--border-color);
+      animation: pulse 1.5s infinite;
+    }
+
+    .system-status {
+      display: flex;
+      gap: 20px;
+      font-size: 0.85rem;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+
+    .status-dot.active {
+      animation: blink 1s infinite;
+    }
+
+    /* Sidebar Panels */
+    .sidebar-title {
+      font-size: 0.95rem;
+      padding: 10px 15px;
+      border-bottom: 1px solid var(--grid-border);
+      background-color: rgba(255, 42, 42, 0.05);
+      color: var(--border-color);
+      letter-spacing: 0.05em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sidebar-content {
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      flex-grow: 1;
+      overflow-y: auto;
+    }
+
+    /* Custom Scrollbar */
+    .sidebar-content::-webkit-scrollbar, .console-log::-webkit-scrollbar {
+      width: 4px;
+    }
+    .sidebar-content::-webkit-scrollbar-thumb, .console-log::-webkit-scrollbar-thumb {
+      background-color: var(--border-color);
+    }
+
+    /* Controls Panel (Left) */
+    #left-panel {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    /* Viewport Panel (Center) */
+    #viewport-container {
+      grid-column: 2;
+      grid-row: 2;
+      position: relative;
+      background-color: #040405;
+    }
+
+    #canvas3d {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Telemetry Panel (Right) */
+    #right-panel {
+      grid-column: 3;
+      grid-row: 2;
+    }
+
+    /* Footer / Terminal */
+    footer {
+      grid-column: 1 / 4;
+      grid-row: 3;
+      display: flex;
+      flex-direction: column;
+      border-top: 2px solid var(--border-color);
+    }
+
+    .console-header {
+      background-color: rgba(255, 42, 42, 0.05);
+      font-size: 0.85rem;
+      padding: 6px 15px;
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--grid-border);
+      color: var(--text-color);
+    }
+
+    .console-log {
+      flex-grow: 1;
+      padding: 10px 15px;
+      background-color: #050506;
+      font-size: 0.8rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .console-line {
+      display: flex;
+      gap: 10px;
+    }
+
+    .console-time {
+      color: var(--accent-cyan);
+      flex-shrink: 0;
+    }
+
+    .console-text {
+      color: var(--text-color);
+      word-break: break-all;
+    }
+
+    .console-text.action {
+      color: var(--accent-amber);
+    }
+
+    .console-text.success {
+      color: var(--accent-green);
+    }
+
+    .console-text.error {
+      color: var(--border-color);
+    }
+
+    /* Buttons & UI Controls */
+    button {
+      background-color: #121216;
+      border: 1px solid var(--grid-border);
+      color: var(--text-color);
+      font-family: 'Share Tech Mono', monospace;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background-color: var(--border-color);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(255, 42, 42, 0.3);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button.active {
+      background-color: var(--border-color);
+      color: #fff;
+    }
+
+    button.green {
+      border: 1px solid var(--accent-green);
+      color: var(--accent-green);
+    }
+
+    button.green:hover {
+      background-color: var(--accent-green);
+      color: #000;
+      box-shadow: 0 0 10px rgba(74, 246, 38, 0.3);
+    }
+
+    .button-group-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .button-group-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    /* UI Fields & readouts */
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field-label {
+      font-size: 0.75rem;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .field-value {
+      background-color: #0f0f13;
+      border: 1px solid var(--grid-border);
+      padding: 8px;
+      font-size: 0.9rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Sliders */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: #1a1a24;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 18px;
+      background: var(--border-color);
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: #ff5555;
+      box-shadow: 0 0 8px var(--border-color);
+    }
+
+    /* Progress and Telemetry Visualizers */
+    .telemetry-row {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .telemetry-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+    }
+
+    .telemetry-bar-bg {
+      height: 10px;
+      background-color: #15151c;
+      border: 1px solid var(--grid-border);
+      position: relative;
+    }
+
+    .telemetry-bar-fill {
+      height: 100%;
+      background-color: var(--accent-green);
+      width: 0%;
+      transition: width 0.1s ease-out;
+    }
+
+    .telemetry-bar-fill.red {
+      background-color: var(--border-color);
+    }
+
+    /* HUD elements on top of Viewport */
+    .hud-overlay {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      background-color: rgba(12, 12, 15, 0.8);
+      border: 1px solid var(--grid-border);
+      padding: 10px;
+      pointer-events: none;
+      font-size: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .hud-crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 30px;
+      height: 30px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      opacity: 0.2;
+    }
+
+    .hud-crosshair::before, .hud-crosshair::after {
+      content: "";
+      position: absolute;
+      background-color: var(--text-color);
+    }
+
+    .hud-crosshair::before {
+      top: 14px; left: 0; width: 30px; height: 2px;
+    }
+    
+    .hud-crosshair::after {
+      top: 0; left: 14px; width: 2px; height: 30px;
+    }
+
+    /* Warning Overlay */
+    #warning-badge {
+      position: absolute;
+      bottom: 15px;
+      left: 15px;
+      background-color: var(--border-color);
+      color: white;
+      padding: 6px 12px;
+      font-size: 0.85rem;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      animation: flash-red 0.5s infinite alternate;
+      z-index: 10;
+    }
+
+    #slicing-modal {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background-color: rgba(5, 5, 6, 0.9);
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .slicing-spinner {
+      width: 40px;
+      height: 40px;
+      border: 2px solid var(--grid-border);
+      border-top: 2px solid var(--border-color);
+      animation: spin 1s linear infinite;
+    }
+
+    .slicing-progress-text {
+      font-size: 1.1rem;
+      letter-spacing: 0.1em;
+    }
+
+    .slicing-bar-bg {
+      width: 250px;
+      height: 8px;
+      background-color: #111;
+      border: 1px solid var(--grid-border);
+    }
+
+    .slicing-bar-fill {
+      height: 100%;
+      background-color: var(--border-color);
+      width: 0%;
+    }
+
+    /* Color Dot representation */
+    .color-swatch {
+      width: 12px;
+      height: 12px;
+      border: 1px solid #fff;
+    }
+
+    /* Keyframes */
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+
+    @keyframes blink {
+      0% { opacity: 0.2; }
+      50% { opacity: 1; }
+      100% { opacity: 0.2; }
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes flash-red {
+      0% { background-color: var(--border-color); box-shadow: 0 0 0px var(--border-color); }
+      100% { background-color: #990000; box-shadow: 0 0 15px var(--border-color); }
+    }
+
+    button:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="dashboard">
+    <!-- Header -->
+    <header>
+      <h1>6-AXIS PRINTBOT SIMULATOR // TR-420</h1>
+      <div class="system-status">
+        <div class="status-item">
+          <span>SYS STATUS:</span>
+          <div class="status-dot active"></div>
+          <span style="color: var(--accent-green);">ONLINE</span>
+        </div>
+        <div class="status-item">
+          <span>COORDS:</span>
+          <span style="color: var(--accent-cyan);">Y-UP (3D)</span>
+        </div>
+        <div class="status-item">
+          <span>TIME:</span>
+          <span id="systime">16:07:20</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Controls Panel (Left) -->
+    <div class="panel" id="left-panel">
+      <div class="sidebar-title">
+        <span>[ 01 / MODEL LOADER ]</span>
+        <span>SYS_LD</span>
+      </div>
+      <div class="sidebar-content">
+        <!-- Load STL File -->
+        <div class="field-group">
+          <span class="field-label">Custom STL Input</span>
+          <button id="btn-browse" class="green">UPLOAD CUSTOM STL</button>
+          <input type="file" id="stl-file" accept=".stl" style="display: none;">
+        </div>
+
+        <!-- Built-in Models -->
+        <div class="field-group">
+          <span class="field-label">Preloaded Prototypes</span>
+          <div class="button-group-3">
+            <button id="btn-model-vase" class="active">VASE</button>
+            <button id="btn-model-gear">GEAR</button>
+            <button id="btn-model-knot">KNOT</button>
+          </div>
+        </div>
+
+        <div class="sidebar-title" style="padding: 10px 0; border-top: 1px solid var(--grid-border); border-bottom: 1px solid var(--grid-border); margin-top: 10px;">
+          <span>[ 02 / MODEL CONFIGURATION ]</span>
+        </div>
+
+        <!-- Model Position X & Z -->
+        <div class="field-group">
+          <div class="telemetry-header">
+            <span class="field-label">Position X / Z</span>
+            <span id="pos-val">X: 0.0, Z: 0.0</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <input type="range" id="slider-pos-x" min="-3.0" max="3.0" step="0.1" value="0.0" title="Translate model along X axis">
+            <input type="range" id="slider-pos-z" min="-3.0" max="3.0" step="0.1" value="0.0" title="Translate model along Z axis">
+          </div>
+        </div>
+
+        <!-- Model Rotation X / Y / Z -->
+        <div class="field-group">
+          <div class="telemetry-header">
+            <span class="field-label">Rotation X / Y / Z</span>
+            <span id="rot-val">X: 0°, Y: 0°, Z: 0°</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+            <input type="range" id="slider-rot-x" min="0" max="360" step="5" value="0" title="Rotate model along X axis">
+            <input type="range" id="slider-rot-y" min="0" max="360" step="5" value="0" title="Rotate model along Y axis">
+            <input type="range" id="slider-rot-z" min="0" max="360" step="5" value="0" title="Rotate model along Z axis">
+          </div>
+        </div>
+
+        <!-- Hologram & Snap Rotation Toggles -->
+        <div class="field-group" style="margin-bottom: 5px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <span class="field-label">Hologram Overlay</span>
+            <button id="btn-toggle-hologram" class="active" style="width: 100%;">HOLOGRAM ON</button>
+          </div>
+          <div>
+            <span class="field-label">90° Snap Lock</span>
+            <button id="btn-toggle-snap" style="width: 100%;">SNAP OFF</button>
+          </div>
+        </div>
+
+        <!-- Model Scale -->
+        <div class="field-group">
+          <div class="telemetry-header">
+            <span class="field-label">Model Scale</span>
+            <span id="scale-val">1.0x</span>
+          </div>
+          <input type="range" id="slider-scale" min="0.5" max="1.5" step="0.05" value="1.0">
+        </div>
+
+        <!-- Nozzle Size -->
+        <div class="field-group">
+          <div class="telemetry-header">
+            <span class="field-label">Nozzle Size</span>
+            <span id="nozzle-val">0.2 mm</span>
+          </div>
+          <input type="range" id="slider-nozzle" min="0.2" max="1.2" step="0.1" value="0.2">
+        </div>
+
+        <!-- Color Mode Selector -->
+        <div class="field-group">
+          <span class="field-label">Color Mode</span>
+          <div class="button-group-2">
+            <button id="btn-color-single" class="active">SINGLE COLOR</button>
+            <button id="btn-color-multi">MULTI-COLOR</button>
+          </div>
+        </div>
+
+        <div class="sidebar-title" style="padding: 10px 0; border-top: 1px solid var(--grid-border); border-bottom: 1px solid var(--grid-border); margin-top: 10px;">
+          <span>[ 03 / PRINT CONTROL ]</span>
+        </div>
+
+        <!-- Print Buttons -->
+        <div class="button-group-2">
+          <button id="btn-play-pause" class="green">► START PRINT</button>
+          <button id="btn-reset">■ RESET</button>
+        </div>
+
+        <!-- Print speed -->
+        <div class="field-group">
+          <div class="telemetry-header">
+            <span class="field-label">Simulation Speed</span>
+            <span id="speed-val">5.0x</span>
+          </div>
+          <input type="range" id="slider-speed" min="0.2" max="5.0" step="0.1" value="5.0">
+        </div>
+
+        <!-- Layer slicing height slider -->
+        <div class="field-group">
+          <div class="telemetry-header">
+            <span class="field-label">Slicing Resolution</span>
+            <span id="resolution-val">200 Layers</span>
+          </div>
+          <input type="range" id="slider-resolution" min="20" max="200" step="5" value="200">
+        </div>
+
+        <div class="sidebar-title" style="padding: 10px 0; border-top: 1px solid var(--grid-border); border-bottom: 1px solid var(--grid-border); margin-top: 10px;">
+          <span>[ 04 / MANUAL OVERRIDE ]</span>
+        </div>
+
+        <!-- Manual toolhead selector -->
+        <div class="field-group">
+          <span class="field-label">Manual Toolhead Change</span>
+          <div class="button-group-2" style="grid-template-columns: repeat(4, 1fr);">
+            <button id="btn-tool-0" style="border-bottom: 3px solid #ff2a2a;">T0</button>
+            <button id="btn-tool-1" style="border-bottom: 3px solid #4af626;">T1</button>
+            <button id="btn-tool-2" style="border-bottom: 3px solid #00e5ff;">T2</button>
+            <button id="btn-tool-3" style="border-bottom: 3px solid #ffb300;">T3</button>
+          </div>
+        </div>
+
+        <!-- Manual camera reset -->
+        <button id="btn-cam-reset">⟲ CAMERA RESET</button>
+      </div>
+    </div>
+
+    <!-- Viewport Container (Center) -->
+    <div id="viewport-container">
+      <canvas id="canvas3d"></canvas>
+      
+      <!-- HUD Overlay -->
+      <div class="hud-overlay">
+        <div>SYS: SIMULATOR_ACTIVE</div>
+        <div>ARM: FANUC_6AX_M420</div>
+        <div>BED: HEATED_PEI_400</div>
+        <div>ATC: SLIDING_CASSETTE_4SL</div>
+      </div>
+
+      <div class="hud-crosshair"></div>
+
+      <!-- Warning Badge -->
+      <div id="warning-badge">
+        <span style="font-weight: bold;">⚠️ WARNING:</span>
+        <span id="warning-text">KINEMATIC LIMIT REACHED</span>
+      </div>
+
+      <!-- Slicing Progressive Modal -->
+      <div id="slicing-modal">
+        <div class="slicing-spinner"></div>
+        <div class="slicing-progress-text">SLICING GEOMETRY...</div>
+        <div class="slicing-bar-bg">
+          <div class="slicing-bar-fill" id="slicing-bar-fill"></div>
+        </div>
+        <div id="slicing-percentage" style="font-size: 0.9rem; color: var(--accent-cyan);">0%</div>
+      </div>
+    </div>
+
+    <!-- Telemetry Panel (Right) -->
+    <div class="panel" id="right-panel">
+      <div class="sidebar-title">
+        <span>[ 05 / ROBOT TELEMETRY ]</span>
+        <span>ATC_TLM</span>
+      </div>
+      <div class="sidebar-content">
+        
+        <!-- Cartesians -->
+        <div class="field-group">
+          <span class="field-label">Toolhead Coordinate (TCP)</span>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+            <div class="field-value" style="display:block; text-align:center;">
+              <div class="field-label" style="font-size:0.6rem;">X-POS</div>
+              <span id="coord-x" style="color:var(--accent-cyan);">0.00</span>
+            </div>
+            <div class="field-value" style="display:block; text-align:center;">
+              <div class="field-label" style="font-size:0.6rem;">Y-POS</div>
+              <span id="coord-y" style="color:var(--accent-cyan);">0.00</span>
+            </div>
+            <div class="field-value" style="display:block; text-align:center;">
+              <div class="field-label" style="font-size:0.6rem;">Z-POS</div>
+              <span id="coord-z" style="color:var(--accent-cyan);">0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Joint telemetry bars -->
+        <div class="field-group">
+          <span class="field-label">Joint Rotation Degrees</span>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            
+            <!-- J1 -->
+            <div class="telemetry-row">
+              <div class="telemetry-header">
+                <span>J1 Base (Rot Y)</span>
+                <span id="j1-val">0.0°</span>
+              </div>
+              <div class="telemetry-bar-bg">
+                <div class="telemetry-bar-fill" id="j1-bar"></div>
+              </div>
+            </div>
+
+            <!-- J2 -->
+            <div class="telemetry-row">
+              <div class="telemetry-header">
+                <span>J2 Shoulder (Rot X)</span>
+                <span id="j2-val">0.0°</span>
+              </div>
+              <div class="telemetry-bar-bg">
+                <div class="telemetry-bar-fill" id="j2-bar"></div>
+              </div>
+            </div>
+
+            <!-- J3 -->
+            <div class="telemetry-row">
+              <div class="telemetry-header">
+                <span>J3 Elbow (Rot X)</span>
+                <span id="j3-val">0.0°</span>
+              </div>
+              <div class="telemetry-bar-bg">
+                <div class="telemetry-bar-fill" id="j3-bar"></div>
+              </div>
+            </div>
+
+            <!-- J4 -->
+            <div class="telemetry-row">
+              <div class="telemetry-header">
+                <span>J4 Forearm (Rot Y)</span>
+                <span id="j4-val">0.0°</span>
+              </div>
+              <div class="telemetry-bar-bg">
+                <div class="telemetry-bar-fill" id="j4-bar"></div>
+              </div>
+            </div>
+
+            <!-- J5 -->
+            <div class="telemetry-row">
+              <div class="telemetry-header">
+                <span>J5 Wrist (Rot X)</span>
+                <span id="j5-val">0.0°</span>
+              </div>
+              <div class="telemetry-bar-bg">
+                <div class="telemetry-bar-fill" id="j5-bar"></div>
+              </div>
+            </div>
+
+            <!-- J6 -->
+            <div class="telemetry-row">
+              <div class="telemetry-header">
+                <span>J6 Flange (Rot Z)</span>
+                <span id="j6-val">0.0°</span>
+              </div>
+              <div class="telemetry-bar-bg">
+                <div class="telemetry-bar-fill" id="j6-bar"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="sidebar-title" style="padding: 10px 0; border-top: 1px solid var(--grid-border); border-bottom: 1px solid var(--grid-border);">
+          <span>[ 06 / SIMULATION STATS ]</span>
+        </div>
+
+        <!-- Stats -->
+        <div class="field-group">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div class="field-value">
+              <span class="field-label">Active Toolhead</span>
+              <span id="stat-toolhead" style="color:var(--border-color); font-weight:bold;">NONE</span>
+            </div>
+            <div class="field-value">
+              <span class="field-label">ATC Slot Pos</span>
+              <span id="stat-atc-pos" style="color:var(--text-color);">Z: 0.00</span>
+            </div>
+            <div class="field-value">
+              <span class="field-label">Printed Filaments</span>
+              <span id="stat-filaments" style="color:var(--accent-cyan);">0 segments</span>
+            </div>
+            <div class="field-value">
+              <span class="field-label">Printing Progress</span>
+              <span id="stat-progress" style="color:var(--accent-green);">0.0%</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Footer / Console -->
+    <header style="display:none;"></header> <!-- Spacer -->
+    <footer>
+      <div class="console-header">
+        <span>>>> DATA STREAM CONSOLE</span>
+        <span>LOG LEVEL: ADVANCED</span>
+      </div>
+      <div class="console-log" id="console-log">
+        <!-- Lines will be appended here -->
+      </div>
+    </footer>
+  </div>
+
+  <!-- Three.js Libraries via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+
+  <!-- JS Simulation Script -->
+  <script src="app.js"></script>
+</body>
+</html>
