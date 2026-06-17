@@ -574,6 +574,13 @@ function buildCassette() {
     rimR.position.z = 0.16;
     spoolGroup.add(rimR);
 
+    // Dynamic rotation marker/label sticker on the front rim
+    const labelGeo = new THREE.BoxGeometry(0.12, 0.35, 0.02);
+    const labelMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const label = new THREE.Mesh(labelGeo, labelMat);
+    label.position.set(0, 0.45, 0.175);
+    spoolGroup.add(label);
+
     scene.add(spoolGroup);
     spools.push(spoolGroup); // to animate rotation
   }
