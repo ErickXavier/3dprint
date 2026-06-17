@@ -1,15 +1,15 @@
 // System Constants
 const L1 = 3.5; // Base column height (increased for reach)
-const L2 = 6.0; // Upper arm length (increased to reach all 8 corners)
-const L3 = 5.0; // Forearm length (increased to reach all 8 corners)
+const L2 = 7.0; // Upper arm length (increased to reach all 8 corners)
+const L3 = 6.0; // Forearm length (increased to reach all 8 corners)
 const L4 = 1.5; // Toolhead length
 
-// Robot mounting offset (base is placed behind the print bed at Z = -4.5)
-const BASE_OFFSET_Z = -4.5;
+// Robot mounting offset (base is placed behind the print bed at Z = -6.0 to be completely out of the bed)
+const BASE_OFFSET_Z = -6.0;
 
 const DOCK_X = -5.5; // Docking insertion X
 const DOCK_Y = 3.0;  // Docking insertion Y
-const DOCK_Z = -4.5; // Docking insertion Z (robot J1 points 180 deg left)
+const DOCK_Z = -6.0; // Docking insertion Z (must align with BASE_OFFSET_Z)
 const APPROACH_X = -3.5; // Docking approach X
 
 // Slots relative Z coordinates on carriage
@@ -249,10 +249,10 @@ function init() {
   // Filament InstancedMesh
   createFilamentExtruder();
 
-  // Build the robot arm geometry (placed behind bed at Z = -4.5)
+  // Build the robot arm geometry (placed behind bed at Z = -6.0)
   buildRobot();
 
-  // Build the cassette ATC system (placed at side at X = -7.0, Z = -4.5)
+  // Build the cassette ATC system (placed at side at X = -7.0, Z = -6.0)
   buildCassette();
 
   // Listeners
@@ -263,7 +263,7 @@ function init() {
   loadBuiltInModel('vase');
 
   logConsole("System Initialization complete.", "success");
-  logConsole("Robot mounted behind the print bed at (0, 0.5, -4.5).");
+  logConsole("Robot mounted behind the print bed at (0, 0.5, -6.0).");
   logConsole("Active Kinematic Engine: Puma-Analytical-IK");
 
   // Start loop
@@ -765,6 +765,13 @@ function createFilamentExtruder() {
   filamentMesh = new THREE.InstancedMesh(cylGeo, cylMat, MAX_FILAMENT_SEGMENTS);
   filamentMesh.castShadow = true;
   filamentMesh.receiveShadow = true;
+
+  // Initialize instance colors so the shader compiles with instanced color support
+  const defaultColor = new THREE.Color(0xffffff);
+  for (let i = 0; i < MAX_FILAMENT_SEGMENTS; i++) {
+    filamentMesh.setColorAt(i, defaultColor);
+  }
+
   scene.add(filamentMesh);
 
   // Filament Line representing the dynamic extrudee segment currently printing
@@ -796,8 +803,8 @@ function addPrintedSegment(p1, p2, colorHex) {
   const alignQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), dirNorm);
   dummy.quaternion.copy(alignQuat);
   
-  // Scale based on configured nozzle size (e.g. 0.4mm -> 0.05 radius)
-  const nozzleRadius = modelConfig.nozzleSize * 0.125;
+  // Scale based on configured nozzle size (scaled down to 1/5th diameter)
+  const nozzleRadius = modelConfig.nozzleSize * 0.125 * 0.2;
   dummy.scale.set(nozzleRadius, nozzleRadius, len);
   dummy.updateMatrix();
 
@@ -878,44 +885,130 @@ function getTrianglesFromGeometry(geo) {
 }
 
 function findFlattestNormal(tris) {
-  const candidates = [];
-  const eps = 0.99; // Dot product threshold (~8 degrees)
+  if (tris.length === 0) return new THREE.Vector3(0, 1, 0);
 
+  // 1. Calculate Center of Mass (CoM)
+  const com = new THREE.Vector3(0, 0, 0);
+  let totalArea = 0;
+  for (const t of tris) {
+    const ab = new THREE.Vector3().subVectors(t.b, t.a);
+    const ac = new THREE.Vector3().subVectors(t.c, t.a);
+    const area = 0.5 * new THREE.Vector3().crossVectors(ab, ac).length();
+    if (area > 0.0001) {
+      const center = new THREE.Vector3().addVectors(t.a, t.b).add(t.c).divideScalar(3);
+      com.addScaledVector(center, area);
+      totalArea += area;
+    }
+  }
+  if (totalArea > 0) {
+    com.divideScalar(totalArea);
+  }
+
+  // 2. Cluster normal axes to find dominant flat planes
+  const clusters = [];
+  const eps = 0.98; // ~11 degrees threshold
   for (const t of tris) {
     const ab = new THREE.Vector3().subVectors(t.b, t.a);
     const ac = new THREE.Vector3().subVectors(t.c, t.a);
     const cross = new THREE.Vector3().crossVectors(ab, ac);
     const area = 0.5 * cross.length();
     if (area < 0.0001) continue;
-
     const normal = cross.clone().normalize();
 
     let found = false;
-    for (const c of candidates) {
-      if (c.normal.dot(normal) > eps) {
+    for (const c of clusters) {
+      if (Math.abs(c.axis.dot(normal)) > eps) {
         c.area += area;
         found = true;
         break;
       }
     }
     if (!found) {
-      candidates.push({
-        normal: normal,
+      clusters.push({
+        axis: normal.clone(),
         area: area
       });
     }
   }
 
-  let bestCandidate = null;
-  let maxArea = -1;
-  for (const c of candidates) {
-    if (c.area > maxArea) {
-      maxArea = c.area;
-      bestCandidate = c;
+  // Sort clusters by area descending and take top 12 to keep search fast
+  clusters.sort((a, b) => b.area - a.area);
+  const activeClusters = clusters.slice(0, 12);
+
+  // 3. Generate candidate directions to evaluate
+  const candidates = [];
+  for (const c of activeClusters) {
+    candidates.push(c.axis.clone());
+    candidates.push(c.axis.clone().negate());
+  }
+
+  // Add fallback standard directions
+  const defaults = [
+    new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0),
+    new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0),
+    new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1)
+  ];
+  for (const d of defaults) {
+    let near = false;
+    for (const cand of candidates) {
+      if (cand.dot(d) > 0.99) {
+        near = true;
+        break;
+      }
+    }
+    if (!near) candidates.push(d);
+  }
+
+  // 4. Evaluate each candidate direction
+  let bestDirection = null;
+  let maxScore = -1;
+
+  for (const d of candidates) {
+    // Project vertices along candidate direction to find bounding range
+    let minProj = Infinity;
+    let maxProj = -Infinity;
+    for (const t of tris) {
+      for (const v of [t.a, t.b, t.c]) {
+        const proj = v.dot(d);
+        if (proj < minProj) minProj = proj;
+        if (proj > maxProj) maxProj = proj;
+      }
+    }
+    const modelHeight = maxProj - minProj;
+    if (modelHeight < 0.001) continue;
+
+    // Contact Area is area of triangles aligned with d and close to maxProj (bottom)
+    let contactArea = 0;
+    for (const t of tris) {
+      const ab = new THREE.Vector3().subVectors(t.b, t.a);
+      const ac = new THREE.Vector3().subVectors(t.c, t.a);
+      const area = 0.5 * new THREE.Vector3().crossVectors(ab, ac).length();
+      if (area < 0.0001) continue;
+      const normal = new THREE.Vector3().crossVectors(ab, ac).normalize();
+
+      if (normal.dot(d) > 0.98) {
+        const centerProj = (t.a.dot(d) + t.b.dot(d) + t.c.dot(d)) / 3;
+        // Check if the face is within 5% of the bottom-most boundary in this orientation
+        if (maxProj - centerProj < 0.05 * modelHeight) {
+          contactArea += area;
+        }
+      }
+    }
+
+    // CoM height above bottom (larger projection = closer to bottom/maxProj)
+    const comHeight = maxProj - com.dot(d);
+    const comHeightNorm = Math.max(0, Math.min(1.0, comHeight / modelHeight));
+
+    // Physics Score: maximizes contact area, minimizes center of mass height
+    const score = contactArea / (comHeightNorm + 0.05) + 0.001 / (comHeightNorm + 0.05);
+
+    if (score > maxScore) {
+      maxScore = score;
+      bestDirection = d;
     }
   }
 
-  return bestCandidate ? bestCandidate.normal : new THREE.Vector3(0, 1, 0);
+  return bestDirection ? bestDirection : new THREE.Vector3(0, 1, 0);
 }
 
 function processAndNormalizeTriangles(tris) {
@@ -1398,8 +1491,9 @@ function processPrintExecution() {
         tcpTargetPos.copy(targetMovePos);
         
         if (currentMoveType === 'PRINT' && activeToolhead) {
-          addPrintedSegment(currentSegmentStart, targetMovePos, COLOR_HEXS[currentMoveColorIdx]);
-          spools[currentMoveColorIdx].rotation.x += 0.05;
+          const colorIdx = (modelConfig.colorMode === 'single' && currentToolIdx !== -1) ? currentToolIdx : currentMoveColorIdx;
+          addPrintedSegment(currentSegmentStart, targetMovePos, COLOR_HEXS[colorIdx]);
+          spools[colorIdx].rotation.x += 0.05;
         }
         
         targetMovePos = null;
@@ -1409,7 +1503,8 @@ function processPrintExecution() {
         tcpTargetPos.copy(interpPos);
         
         if (currentMoveType === 'PRINT' && activeToolhead) {
-          updateActiveLine(currentSegmentStart, tcpTargetPos, COLOR_HEXS[currentMoveColorIdx]);
+          const colorIdx = (modelConfig.colorMode === 'single' && currentToolIdx !== -1) ? currentToolIdx : currentMoveColorIdx;
+          updateActiveLine(currentSegmentStart, tcpTargetPos, COLOR_HEXS[colorIdx]);
         }
       }
       break; 
@@ -1433,6 +1528,7 @@ function triggerToolChange(colorIdx) {
   toolchangeReturnIndex = queueIndex;
   
   logConsole(`Color change requested -> Toolhead T${colorIdx} (${COLOR_NAMES[colorIdx]})`, "action");
+  hideActiveLine(); // Hide extruder line during tool change
   return true;
 }
 
@@ -1556,6 +1652,16 @@ function dockActiveToolhead() {
   
   document.getElementById('stat-toolhead').innerText = "NONE";
   document.getElementById('stat-toolhead').style.color = "var(--border-color)";
+
+  // Remove active highlight from all manual toolhead buttons
+  for (let i = 0; i < 4; i++) {
+    const btn = document.getElementById(`btn-tool-${i}`);
+    if (btn) {
+      btn.style.backgroundColor = '';
+      btn.style.color = '';
+      btn.style.fontWeight = '';
+    }
+  }
 }
 
 function pickupTargetToolhead() {
@@ -1574,7 +1680,24 @@ function pickupTargetToolhead() {
   document.getElementById('stat-toolhead').style.color = `#${COLOR_HEXS[currentToolIdx].toString(16).padStart(6, '0')}`;
   logConsole(`Flange coupled with toolhead T${currentToolIdx}.`, "success");
 
-  if (modelConfig.colorMode === 'single' && lastSlicedLayers.length > 0) {
+  // Highlight the active manual toolhead button with its filament color
+  for (let i = 0; i < 4; i++) {
+    const btn = document.getElementById(`btn-tool-${i}`);
+    if (btn) {
+      if (i === currentToolIdx) {
+        btn.style.backgroundColor = `#${COLOR_HEXS[i].toString(16).padStart(6, '0')}`;
+        btn.style.color = '#000';
+        btn.style.fontWeight = 'bold';
+      } else {
+        btn.style.backgroundColor = '';
+        btn.style.color = '';
+        btn.style.fontWeight = '';
+      }
+    }
+  }
+
+  // Prevent resetting print queue index mid-print
+  if (modelConfig.colorMode === 'single' && lastSlicedLayers.length > 0 && !isPrinting) {
     generatePrintQueue(lastSlicedLayers);
   }
 }
@@ -1735,6 +1858,13 @@ function setupUIEventListeners() {
   nozzleSlider.addEventListener('input', () => {
     modelConfig.nozzleSize = parseFloat(nozzleSlider.value);
     nozzleVal.innerText = `${modelConfig.nozzleSize.toFixed(1)} mm`;
+
+    // Automatically adjust resolution layers based on nozzle size (thinner nozzle -> more layers)
+    const calculatedLayers = Math.round(100 / modelConfig.nozzleSize);
+    const resSlider = document.getElementById('slider-resolution');
+    resSlider.max = calculatedLayers; // Dynamically adjust max limit as needed
+    resSlider.value = calculatedLayers;
+    document.getElementById('resolution-val').innerText = `${calculatedLayers} Layers`;
   });
   
   nozzleSlider.addEventListener('change', () => {
@@ -1826,9 +1956,6 @@ function setupUIEventListeners() {
   for (let i = 0; i < 4; i++) {
     document.getElementById(`btn-tool-${i}`).addEventListener('click', () => {
       if (atcState === 'IDLE') {
-        isPrinting = false;
-        isPaused = true;
-        playBtn.innerText = '► START PRINT';
         triggerToolChange(i);
       } else {
         logConsole("WARNING: ATC active. Clear sequence first.", "error");
