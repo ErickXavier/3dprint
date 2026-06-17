@@ -531,17 +531,35 @@ function buildCassette() {
   scene.add(rack);
 
   // Spool spindles / holders
-  const spindleGeo = new THREE.CylinderGeometry(0.1, 0.1, 1.0, 12);
+  const bracketSteelMat = new THREE.MeshStandardMaterial({ 
+    color: 0x9e9ea6, 
+    metalness: 0.8, 
+    roughness: 0.2,
+    emissive: 0x1a1a1c 
+  });
+  const spindleGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.75, 12);
   spindleGeo.rotateZ(Math.PI / 2); // along X-axis
-
+ 
+  // Spool support brackets (heavy-duty dual vertical steel plates extending to the bottom of the rack)
+  const bracketGeo = new THREE.BoxGeometry(0.05, 3.0, 0.8);
+ 
   // Build 4 filament spools (fixed rack behind Z = -12.5)
   for (let i = 0; i < 4; i++) {
     const sx = SLOT_LOCAL_XS[i];
     
-    // Spindle
-    const spin = new THREE.Mesh(spindleGeo, rackMat);
+    // Spindle (axle)
+    const spin = new THREE.Mesh(spindleGeo, bracketSteelMat);
     spin.position.set(sx, 5.5, -13.7);
     scene.add(spin);
+ 
+    // Support brackets left and right of spool
+    const bracketL = new THREE.Mesh(bracketGeo, bracketSteelMat);
+    bracketL.position.set(sx - 0.26, 4.5, -14.0);
+    scene.add(bracketL);
+ 
+    const bracketR = new THREE.Mesh(bracketGeo, bracketSteelMat);
+    bracketR.position.set(sx + 0.26, 4.5, -14.0);
+    scene.add(bracketR);
 
     // Filament Spool wheel
     const spoolGroup = new THREE.Group();
