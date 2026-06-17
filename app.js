@@ -1493,7 +1493,7 @@ function processPrintExecution() {
         if (currentMoveType === 'PRINT' && activeToolhead) {
           const colorIdx = (modelConfig.colorMode === 'single' && currentToolIdx !== -1) ? currentToolIdx : currentMoveColorIdx;
           addPrintedSegment(currentSegmentStart, targetMovePos, COLOR_HEXS[colorIdx]);
-          spools[colorIdx].rotation.x += 0.05;
+          spools[colorIdx].rotation.z -= 0.05;
         }
         
         targetMovePos = null;
