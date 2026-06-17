@@ -531,8 +531,8 @@ function buildCassette() {
   scene.add(rack);
 
   // Spool spindles / holders
-  const spindleGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.8, 12);
-  spindleGeo.rotateX(Math.PI / 2); // along Z-axis
+  const spindleGeo = new THREE.CylinderGeometry(0.1, 0.1, 1.0, 12);
+  spindleGeo.rotateZ(Math.PI / 2); // along X-axis
 
   // Build 4 filament spools (fixed rack behind Z = -12.5)
   for (let i = 0; i < 4; i++) {
@@ -540,7 +540,7 @@ function buildCassette() {
     
     // Spindle
     const spin = new THREE.Mesh(spindleGeo, rackMat);
-    spin.position.set(sx, 5.5, -14.0);
+    spin.position.set(sx, 5.5, -13.7);
     scene.add(spin);
 
     // Filament Spool wheel
@@ -548,14 +548,14 @@ function buildCassette() {
     spoolGroup.position.set(sx, 5.5, -13.7);
     
     // Inner core
-    const coreGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.35, 24);
-    coreGeo.rotateX(Math.PI / 2);
+    const coreGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.4, 24);
+    coreGeo.rotateZ(Math.PI / 2); // along X-axis
     const core = new THREE.Mesh(coreGeo, rackMat);
     spoolGroup.add(core);
 
     // Filament winding (colored cylinder)
-    const filGeo = new THREE.CylinderGeometry(0.75, 0.75, 0.3, 24);
-    filGeo.rotateX(Math.PI / 2);
+    const filGeo = new THREE.CylinderGeometry(1.2, 1.2, 0.38, 24);
+    filGeo.rotateZ(Math.PI / 2); // along X-axis
     const filMat = new THREE.MeshStandardMaterial({ 
       color: COLOR_HEXS[i], 
       roughness: 0.7 
@@ -564,21 +564,21 @@ function buildCassette() {
     spoolGroup.add(fil);
 
     // Outer rims
-    const rimGeo = new THREE.CylinderGeometry(0.85, 0.85, 0.02, 24);
-    rimGeo.rotateX(Math.PI / 2);
+    const rimGeo = new THREE.CylinderGeometry(1.35, 1.35, 0.02, 24);
+    rimGeo.rotateZ(Math.PI / 2); // along X-axis
     const rimL = new THREE.Mesh(rimGeo, carriageMat);
-    rimL.position.z = -0.16;
+    rimL.position.x = -0.21;
     spoolGroup.add(rimL);
 
     const rimR = new THREE.Mesh(rimGeo, carriageMat);
-    rimR.position.z = 0.16;
+    rimR.position.x = 0.21;
     spoolGroup.add(rimR);
 
-    // Dynamic rotation marker/label sticker on the front rim
-    const labelGeo = new THREE.BoxGeometry(0.12, 0.35, 0.02);
+    // Dynamic rotation marker/label sticker on the outer rim face
+    const labelGeo = new THREE.BoxGeometry(0.02, 0.5, 0.12);
     const labelMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     const label = new THREE.Mesh(labelGeo, labelMat);
-    label.position.set(0, 0.45, 0.175);
+    label.position.set(0.22, 0.7, 0);
     spoolGroup.add(label);
 
     scene.add(spoolGroup);
@@ -732,8 +732,8 @@ function updateBowdenTubes() {
     const tube = bowdenTubes[i];
     const toolhead = toolheads[i];
     
-    // Start point is the spool outlet (fixed behind rail)
-    const pStart = new THREE.Vector3(SLOT_LOCAL_XS[i], 5.5, -13.7);
+    // Start point is the spool outlet (outer front-top edge of the winding)
+    const pStart = new THREE.Vector3(SLOT_LOCAL_XS[i], 6.35, -12.85);
 
     // End point is the top of the toolhead
     const pEnd = new THREE.Vector3();
@@ -1500,7 +1500,7 @@ function processPrintExecution() {
         if (currentMoveType === 'PRINT' && activeToolhead) {
           const colorIdx = (modelConfig.colorMode === 'single' && currentToolIdx !== -1) ? currentToolIdx : currentMoveColorIdx;
           addPrintedSegment(currentSegmentStart, targetMovePos, COLOR_HEXS[colorIdx]);
-          spools[colorIdx].rotation.z -= 0.05;
+          spools[colorIdx].rotation.x += 0.05;
         }
         
         targetMovePos = null;
