@@ -7,13 +7,13 @@ const L4 = 1.5; // Toolhead length
 // Robot mounting offset (base is placed behind the print bed at Z = -6.0 to be completely out of the bed)
 const BASE_OFFSET_Z = -6.0;
 
-const DOCK_X = -5.5; // Docking insertion X
+const DOCK_X = 0.0; // Docking insertion X
 const DOCK_Y = 3.0;  // Docking insertion Y
-const DOCK_Z = -6.0; // Docking insertion Z (must align with BASE_OFFSET_Z)
-const APPROACH_X = -3.5; // Docking approach X
+const DOCK_Z = -7.5; // Docking insertion Z (the slot center)
+const APPROACH_Z = -5.5; // Docking approach Z (in front of slot)
 
-// Slots relative Z coordinates on carriage
-const SLOT_LOCAL_ZS = [-3.0, -1.0, 1.0, 3.0];
+// Slots relative X coordinates on carriage
+const SLOT_LOCAL_XS = [-3.0, -1.0, 1.0, 3.0];
 const COLOR_HEXS = [0xff2a2a, 0x4af626, 0x00e5ff, 0xffb300]; // Red, Green, Cyan/Blue, Amber/Yellow
 const COLOR_NAMES = ["T0_RED", "T1_GREEN", "T2_CYAN", "T3_AMBER"];
 
@@ -24,8 +24,8 @@ let clawL, clawR;
 let cassetteCarriage, cassetteRail, spools = [];
 let toolheads = []; // instances
 let activeToolhead = null;
-let currentCarriageZ = 0;
-let targetCarriageZ = 0;
+let currentCarriageX = 0;
+let targetCarriageX = 0;
 
 // Print and Simulation variables
 let simSpeed = 5.0;
@@ -502,60 +502,60 @@ function buildRobot() {
 }
 
 function buildCassette() {
-  // The cassette is a sliding track system at X = -7.0, centered at Z = BASE_OFFSET_Z
+  // The cassette is a sliding track system behind the arm at Z = -8.5, sliding along X
   const trackMat = new THREE.MeshStandardMaterial({ color: 0x33333e, metalness: 0.8 });
   const carriageMat = new THREE.MeshStandardMaterial({ color: 0x222227, metalness: 0.8 });
   
   // Linear rail support pillars
   const pillarGeo = new THREE.CylinderGeometry(0.2, 0.2, 4.5, 16);
   const pillar1 = new THREE.Mesh(pillarGeo, trackMat);
-  pillar1.position.set(-7.0, 2.25, BASE_OFFSET_Z - 4.5);
+  pillar1.position.set(-4.5, 2.25, -8.5);
   scene.add(pillar1);
   
   const pillar2 = new THREE.Mesh(pillarGeo, trackMat);
-  pillar2.position.set(-7.0, 2.25, BASE_OFFSET_Z + 4.5);
+  pillar2.position.set(4.5, 2.25, -8.5);
   scene.add(pillar2);
 
-  // The linear rail bar (along Z-axis)
+  // The linear rail bar (along X-axis)
   const railGeo = new THREE.CylinderGeometry(0.18, 0.18, 9.8, 16);
-  railGeo.rotateX(Math.PI / 2);
+  railGeo.rotateZ(Math.PI / 2);
   cassetteRail = new THREE.Mesh(railGeo, trackMat);
-  cassetteRail.position.set(-7.0, 4.5, BASE_OFFSET_Z);
+  cassetteRail.position.set(0.0, 4.5, -8.5);
   scene.add(cassetteRail);
 
   // Spool Rack Frame
   const rackMat = new THREE.MeshStandardMaterial({ color: 0x1e1e24, metalness: 0.9 });
-  const rackGeo = new THREE.BoxGeometry(0.2, 6.0, 8.5);
+  const rackGeo = new THREE.BoxGeometry(8.5, 6.0, 0.2);
   const rack = new THREE.Mesh(rackGeo, rackMat);
-  rack.position.set(-8.8, 3.0, BASE_OFFSET_Z);
+  rack.position.set(0.0, 3.0, -10.3);
   scene.add(rack);
 
-  // Spool spings / holders
+  // Spool spindles / holders
   const spindleGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.8, 12);
-  spindleGeo.rotateZ(Math.PI / 2);
+  spindleGeo.rotateX(Math.PI / 2); // along Z-axis
 
-  // Build 4 filament spools (fixed rack relative to BASE_OFFSET_Z)
+  // Build 4 filament spools (fixed rack behind Z = -8.5)
   for (let i = 0; i < 4; i++) {
-    const sz = BASE_OFFSET_Z + SLOT_LOCAL_ZS[i];
+    const sx = SLOT_LOCAL_XS[i];
     
     // Spindle
     const spin = new THREE.Mesh(spindleGeo, rackMat);
-    spin.position.set(-8.6, 5.5, sz);
+    spin.position.set(sx, 5.5, -10.0);
     scene.add(spin);
 
     // Filament Spool wheel
     const spoolGroup = new THREE.Group();
-    spoolGroup.position.set(-8.2, 5.5, sz);
+    spoolGroup.position.set(sx, 5.5, -9.7);
     
     // Inner core
     const coreGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.35, 24);
-    coreGeo.rotateZ(Math.PI / 2);
+    coreGeo.rotateX(Math.PI / 2);
     const core = new THREE.Mesh(coreGeo, rackMat);
     spoolGroup.add(core);
 
     // Filament winding (colored cylinder)
     const filGeo = new THREE.CylinderGeometry(0.75, 0.75, 0.3, 24);
-    filGeo.rotateZ(Math.PI / 2);
+    filGeo.rotateX(Math.PI / 2);
     const filMat = new THREE.MeshStandardMaterial({ 
       color: COLOR_HEXS[i], 
       roughness: 0.7 
@@ -565,60 +565,60 @@ function buildCassette() {
 
     // Outer rims
     const rimGeo = new THREE.CylinderGeometry(0.85, 0.85, 0.02, 24);
-    rimGeo.rotateZ(Math.PI / 2);
+    rimGeo.rotateX(Math.PI / 2);
     const rimL = new THREE.Mesh(rimGeo, carriageMat);
-    rimL.position.x = -0.16;
+    rimL.position.z = -0.16;
     spoolGroup.add(rimL);
 
     const rimR = new THREE.Mesh(rimGeo, carriageMat);
-    rimR.position.x = 0.16;
+    rimR.position.z = 0.16;
     spoolGroup.add(rimR);
 
     scene.add(spoolGroup);
     spools.push(spoolGroup); // to animate rotation
   }
 
-  // The sliding carriage that moves along the rail (centered initially at BASE_OFFSET_Z)
+  // The sliding carriage that moves along the rail (centered initially at X = 0)
   cassetteCarriage = new THREE.Group();
-  cassetteCarriage.position.set(-7.0, 4.5, BASE_OFFSET_Z);
+  cassetteCarriage.position.set(0.0, 4.5, -8.5);
   scene.add(cassetteCarriage);
 
-  const carriageGeo = new THREE.BoxGeometry(0.8, 0.4, 7.8);
+  const carriageGeo = new THREE.BoxGeometry(7.8, 0.4, 0.8);
   const carriageMesh = new THREE.Mesh(carriageGeo, carriageMat);
   cassetteCarriage.add(carriageMesh);
 
-  // Add 4 brackets/holders spaced at local Z coords
+  // Add 4 brackets/holders spaced at local X coords
   const bracketMat = new THREE.MeshStandardMaterial({ color: 0x44444c, metalness: 0.8 });
-  const forkGeo = new THREE.BoxGeometry(0.5, 0.08, 0.7);
+  const forkGeo = new THREE.BoxGeometry(0.7, 0.08, 0.5); // fork flat in X-Z
   
   for (let i = 0; i < 4; i++) {
-    const slotZ = SLOT_LOCAL_ZS[i];
+    const slotX = SLOT_LOCAL_XS[i];
     
     // Create holder group
     const slotGroup = new THREE.Group();
-    slotGroup.position.set(0, -0.2, slotZ); // sits at Y = 4.3 relative to carriage base
+    slotGroup.position.set(slotX, -0.2, 0); // sits at Y = 4.3 relative to carriage base
     cassetteCarriage.add(slotGroup);
     
-    // Support arm from rail to fork: local X = 0.75
-    const supportArmGeo = new THREE.BoxGeometry(1.5, 0.08, 0.2);
+    // Support arm from rail to fork: local Z = 0.75
+    const supportArmGeo = new THREE.BoxGeometry(0.2, 0.08, 1.5);
     const supportArm = new THREE.Mesh(supportArmGeo, bracketMat);
-    supportArm.position.x = 0.75;
+    supportArm.position.z = 0.75;
     slotGroup.add(supportArm);
     
-    // Visual fork at local X = 1.5 (world X = -5.5, perfectly aligned with robot docking position)
+    // Visual fork at local Z = 1.5 (perfectly aligned with robot docking position when aligned)
     const fork = new THREE.Mesh(forkGeo, bracketMat);
-    fork.position.x = 1.5; // extends towards robot
+    fork.position.z = 1.5; // extends towards robot
     slotGroup.add(fork);
 
-    const colorTabGeo = new THREE.BoxGeometry(0.1, 0.1, 0.72);
+    const colorTabGeo = new THREE.BoxGeometry(0.72, 0.1, 0.1);
     const colorTabMat = new THREE.MeshBasicMaterial({ color: COLOR_HEXS[i] });
     const colorTab = new THREE.Mesh(colorTabGeo, colorTabMat);
-    colorTab.position.set(1.75, 0, 0);
+    colorTab.position.set(0, 0, 1.75);
     slotGroup.add(colorTab);
 
-    // Instantiate toolhead object and place it initially in the slot group at local X = 1.5
+    // Instantiate toolhead object and place it initially in the slot group at local Z = 1.5
     const toolhead = new Toolhead(i, COLOR_HEXS[i]);
-    toolhead.group.position.set(1.5, 0, 0);
+    toolhead.group.position.set(0, 0, 1.5);
     slotGroup.add(toolhead.group);
     
     toolheads.push(toolhead);
@@ -725,8 +725,8 @@ function updateBowdenTubes() {
     const tube = bowdenTubes[i];
     const toolhead = toolheads[i];
     
-    // Start point is the spool outlet (fixed)
-    const pStart = new THREE.Vector3(-8.2, 5.5, BASE_OFFSET_Z + SLOT_LOCAL_ZS[i]);
+    // Start point is the spool outlet (fixed behind rail)
+    const pStart = new THREE.Vector3(SLOT_LOCAL_XS[i], 5.5, -9.7);
 
     // End point is the top of the toolhead
     const pEnd = new THREE.Vector3();
@@ -736,7 +736,7 @@ function updateBowdenTubes() {
     // Quadratic Bezier control point for droop
     const pMid = new THREE.Vector3().addVectors(pStart, pEnd).multiplyScalar(0.5);
     pMid.y += 2.0; // arch upwards
-    pMid.x += 1.0;
+    pMid.z += 1.0; // arch along Z towards front
 
     // Generate points along curve
     const curve = new THREE.QuadraticBezierCurve3(pStart, pMid, pEnd);
@@ -1430,10 +1430,10 @@ function animate() {
 
   interpolateJoints();
 
-  if (Math.abs(currentCarriageZ - targetCarriageZ) > 0.005) {
-    currentCarriageZ += (targetCarriageZ - currentCarriageZ) * 0.08 * simSpeed;
-    cassetteCarriage.position.z = BASE_OFFSET_Z + currentCarriageZ;
-    document.getElementById('stat-atc-pos').innerText = `Z: ${currentCarriageZ.toFixed(2)}`;
+  if (Math.abs(currentCarriageX - targetCarriageX) > 0.005) {
+    currentCarriageX += (targetCarriageX - currentCarriageX) * 0.08 * simSpeed;
+    cassetteCarriage.position.x = currentCarriageX;
+    document.getElementById('stat-atc-pos').innerText = `X: ${currentCarriageX.toFixed(2)}`;
   }
 
   updateBowdenTubes();
@@ -1538,14 +1538,14 @@ function processToolChangeSequence() {
   switch (atcState) {
     case 'DOCK_APPROACH':
       if (currentToolIdx === -1) {
-        targetCarriageZ = -SLOT_LOCAL_ZS[targetToolIdx];
+        targetCarriageX = -SLOT_LOCAL_XS[targetToolIdx];
         atcState = 'SLIDE_CASSETTE';
         logConsole(`Initial tool pickup. Aligning Slot ${targetToolIdx} (${COLOR_NAMES[targetToolIdx]}).`);
         break;
       }
 
-      const curSlotZ = SLOT_LOCAL_ZS[currentToolIdx];
-      const tApproach = new THREE.Vector3(APPROACH_X, DOCK_Y, DOCK_Z);
+      const curSlotX = SLOT_LOCAL_XS[currentToolIdx];
+      const tApproach = new THREE.Vector3(DOCK_X, DOCK_Y, APPROACH_Z);
       
       tcpTargetPos.lerp(tApproach, speedCoeff);
       if (tcpTargetPos.distanceTo(tApproach) < 0.05) {
@@ -1584,14 +1584,14 @@ function processToolChangeSequence() {
       if (tcpTargetPos.distanceTo(tLift) < 0.05) {
         tcpTargetPos.copy(tLift);
         atcState = 'SLIDE_CASSETTE';
-        targetCarriageZ = -SLOT_LOCAL_ZS[targetToolIdx];
+        targetCarriageX = -SLOT_LOCAL_XS[targetToolIdx];
         logConsole(`Sliding ATC cassette. Aligning Slot ${targetToolIdx} (${COLOR_NAMES[targetToolIdx]}) to pickup axis.`, "action");
       }
       break;
 
     case 'SLIDE_CASSETTE':
-      if (Math.abs(currentCarriageZ - targetCarriageZ) < 0.01) {
-        currentCarriageZ = targetCarriageZ;
+      if (Math.abs(currentCarriageX - targetCarriageX) < 0.01) {
+        currentCarriageX = targetCarriageX;
         atcState = 'FLANGE_DESCEND';
         logConsole("ATC Cassette aligned. Descending flange to engage.");
       }
@@ -1620,7 +1620,7 @@ function processToolChangeSequence() {
       break;
 
     case 'RETRACT_DOCK':
-      const tRetract = new THREE.Vector3(APPROACH_X, DOCK_Y, DOCK_Z);
+      const tRetract = new THREE.Vector3(DOCK_X, DOCK_Y, APPROACH_Z);
       
       tcpTargetPos.lerp(tRetract, speedCoeff);
       if (tcpTargetPos.distanceTo(tRetract) < 0.05) {
@@ -1644,7 +1644,7 @@ function dockActiveToolhead() {
 
   flange.remove(th.group);
   slotGroup.add(th.group);
-  th.group.position.set(1.5, 0, 0);
+  th.group.position.set(0, 0, 1.5);
   th.group.rotation.set(0, 0, 0);
   
   activeToolhead = null;
@@ -2026,9 +2026,9 @@ function resetPrint() {
     dockActiveToolhead();
   }
   
-  targetCarriageZ = 0;
-  currentCarriageZ = 0;
-  cassetteCarriage.position.z = BASE_OFFSET_Z;
+  targetCarriageX = 0;
+  currentCarriageX = 0;
+  cassetteCarriage.position.x = 0;
   
   clawL.position.z = -0.4;
   clawR.position.z = 0.4;
